@@ -1,0 +1,15 @@
+# Python config
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Data files (NEVER upload these)
+*.nc
+*.nc4
+*.grib
+*.hdf
+
+# System files
+.DS_Store
+.ipynb_checkpoints/

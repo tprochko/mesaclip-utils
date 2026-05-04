@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glade_io"
+version = "0.1.0"
+authors = [
+  { name="Travis Prochko", email="travpro18@outlook.com" },
+]
+description = "Helper functions for parsing MESACLIP model output on NCAR GLADE filesystem"
+dependencies = [
+    "numpy",
+    "xarray",
+    "dask",
+    "netCDF4",
+    "cftime",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
