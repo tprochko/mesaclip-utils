@@ -792,7 +792,7 @@ def get_xarray_dataset(path_list,variable,start,end,scenario,ensemble,component,
             ds0 = xr.open_mfdataset(path,preprocess=pp,parallel=parallel,chunks=chunks,engine="h5netcdf",
                                    coords='minimal',compat='override',data_vars='minimal')
             ds_list.append(ds0)
-        ds = xr.concat(ds_list,dim='ensemble')
+        ds = xr.concat(ds_list,dim='ensemble',coords='minimal',compat='override',data_vars='minimal')
     else:
         ds = xr.open_mfdataset(path_list[0],preprocess=pp,parallel=parallel,chunks=chunks,engine="h5netcdf",
                                    coords='minimal',compat='override',data_vars='minimal')
