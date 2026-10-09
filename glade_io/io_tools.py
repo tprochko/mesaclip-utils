@@ -10,6 +10,7 @@ from functools import partial
 import warnings
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 import cftime
 
@@ -62,8 +63,9 @@ def _preprocessor_month_1(ds0,keepvars,isel,sel,drop_cell,shift_time):
         ds0.z_t.attrs = {}              
         ds0 = ds0.set_coords('z_t')
     
-    if keepvars != None:
-        ds0 = ds0[[keepvars]]
+    if keepvars is not None:
+        vars_to_keep = [keepvars] if isinstance(keepvars, str) else keepvars
+        ds0 = ds0[vars_to_keep]
 
     if isel != None:
         ds0 = ds0.isel(isel)
@@ -77,14 +79,16 @@ def _preprocessor_month_1(ds0,keepvars,isel,sel,drop_cell,shift_time):
         ds0 = time_set_midmonth(ds0,'time')
 
     # Not all file time coordinates were saved in the start-of-next-month format.
-    # This step checks if we need to shift, or if the time coordinate starts at 1. 
+    # This step checks if we need to shift, or if the time coordinate starts at 1.    
     if shift_time == 'auto':
-        if ds0.time.dt.month.values[0] == 2:
-            print('Shifting time coordinate.')
-            ds0 = time_set_midmonth(ds0,'time')
+ 
+        if ds0.time.to_index()[0].month == 2:
+            ds0 = time_set_midmonth(ds0, 'time')
         else:
-            newtime = ds0.indexes['time'].shift(14, freq='D')
-            ds0['time'] = newtime
+            # Vectorized day shifting using pandas instead of xr.where
+            times = ds0.time.to_index()
+            new_times = [t if t.month == 2 else t + pd.Timedelta(days=14) for t in times]
+            ds0 = ds0.assign_coords(time=new_times)
 
     
     return ds0
@@ -110,11 +114,12 @@ def _preprocessor_day_1(ds0,res,keepvars,isel,sel,drop_cell,shift_time):
         newtime = ds0.indexes['time'].shift(-1, freq='D')
         ds0['time'] = newtime
         
-    if keepvars != None:
-        ds0 = ds0[[keepvars]]
+    if keepvars is not None:
+        vars_to_keep = [keepvars] if isinstance(keepvars, str) else keepvars
+        ds0 = ds0[vars_to_keep]
 
-    if res == 'LR' and ds0.time.dt.year[0] not in [2000,2096]:
-        ds0 = ds0.isel(time=slice(None,-31))
+    # if res == 'LR' and ds0.time.dt.year[0] not in [2000,2096]:
+    #     ds0 = ds0.isel(time=slice(None,-31))
 
     if isel != None:
         ds0 = ds0.isel(isel)
@@ -161,7 +166,7 @@ def get_CESM_variable(resolution,variable,start,end,scenario,ensemble,component,
                     depending on the cell_method used to save each dataset (VERY IMPORTANT)
     chunks : dict or str, indicating desired chunks for lazy loading (passes xarray.open_dataset()
                     chunk argument)
-    parallel : bool, indicates whether or not to load data lazily with dask
+    parallel : bool, indicates whether or not to load metadata lazily with dask (highly recommended to keep FALSE)
 --- Output ---
     result : xarray Dataset object or list of str, if path_list is True, then return just the 
                     filepaths, otherwise return an xarray Dataset object
@@ -459,6 +464,7 @@ def get_CESMHR_variable(variable,start,end,scenario,ensemble,component,temporal,
         base_list = get_CESMHR_filename_base(scenario,ensemble,component,temporal)
         base_list = [x + y for x,y in zip(dir_list,base_list)]
         path_list = [get_CESM_filepath(start,end,variable,x) for x in base_list]
+        # print(path_list)
 
     if out_list == True:
         result = path_list
@@ -593,14 +599,26 @@ def get_CESMLR_filename_base(scenario,ensemble='all',component='ocn',temporal='m
         blist = ['B.E.13.B1850C5.ne30g16.sehires38.003.sunway.']
         
     elif scenario == 'BHIST':
+        # if component != 'ice':
+        #     blist = ['b.e13.BHISTC5.ne30_g16.cesm-ihesp-sehires38-1850-2005.001.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.002.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.003.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.004.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.005.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.006.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.007.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.008.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.009.',
+        #             'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.010.']
+        # elif component == 'ice':
         blist = ['b.e13.BHISTC5.ne30_g16.cesm-ihesp-sehires38-1850-2005.001.',
                 'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.002.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.003.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.004.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.005.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.006.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.007.',
-                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2100.008.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.003.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.004.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.005.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.006.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.007.',
+                'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.008.',
                 'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.009.',
                 'b.e13.BHISTC5.ne30_g16.cesm-ihesp-hires1.0.42-1920-2005.010.']
     elif scenario == 'BRCP85':
@@ -627,6 +645,8 @@ def get_CESMLR_filename_base(scenario,ensemble='all',component='ocn',temporal='m
         comp_name = 'cam.h1.'
     elif (component == 'atm') and (temporal == 'month_1'):
         comp_name = 'cam.h0.'
+    elif component == 'ice':
+        comp_name = 'cice.h.'
     ## include other components in future
 
     blist0 = [''.join([b,comp_name]) for b in blist]
@@ -744,8 +764,17 @@ def get_CESM_filepath(start,end,variable,fbase):
         
         bin_edges = np.array(bin_edges)
         filled_bins_idx = np.unique(np.digitize(years, bin_edges)) - 1
+        filled_bins_idx = filled_bins_idx[filled_bins_idx >= 0]
         flist0 = flist[filled_bins_idx]
-    
+
+        if len(flist0) < 1:
+            raise Exception('Time period error: Paths for {} could be found, but no files within the time bounds you selected were detected. \nPlease check your selected time periods for this variable.'.format(fbase+'{}.*.nc'.format(variable)))
+
+        fstart = flist0[0].rsplit('.'+variable+'.',1)[-1].split('-')[0].strip('.').strip('nc')[:4]
+        fend = flist0[-1].rsplit('.'+variable+'.',1)[-1].split('-')[0].strip('.').strip('nc')[:4]
+        if (int(fstart) != int(start)) or (int(fend) != int(end)):
+            warnings.warn('Time period warning: All paths for the variable {} over the selected time period {}-{} may not have been found. \nPlease double-check your output xr.Dataset time index.'.format(variable,start,end))
+
         return flist0
 
     else:
@@ -776,7 +805,7 @@ def get_xarray_dataset(path_list,variable,start,end,scenario,ensemble,component,
                         depending on the cell_method used to save each dataset (VERY IMPORTANT)
         chunks : dict or str, indicating desired chunks for lazy loading (passes xarray.open_dataset()
                         chunk argument)
-        parallel : bool, indicates whether or not to load data lazily with dask
+        parallel : bool, indicates whether or not to load metadata lazily with dask (highly recommended to keep FALSE)
     --- Output ---
         result : xarray Dataset object, if path_list is True, then return just the 
                         filepaths, otherwise return an xarray Dataset object
@@ -789,12 +818,15 @@ def get_xarray_dataset(path_list,variable,start,end,scenario,ensemble,component,
     if scenario != 'PIcntl' and ensemble == 'all':
         ds_list = []
         for path in path_list:
-            ds0 = xr.open_mfdataset(path,preprocess=pp,parallel=parallel,chunks=chunks,engine="h5netcdf",
+            ds0 = xr.open_mfdataset(path,preprocess=pp,parallel=parallel,chunks=chunks,concat_dim='time',combine='nested',
                                    coords='minimal',compat='override',data_vars='minimal')
             ds_list.append(ds0)
-        ds = xr.concat(ds_list,dim='ensemble',coords='minimal',compat='override',data_vars='minimal')
-    else:
-        ds = xr.open_mfdataset(path_list[0],preprocess=pp,parallel=parallel,chunks=chunks,engine="h5netcdf",
+        ds = xr.concat(ds_list,dim='ensemble',coords='minimal',compat='override').assign_coords({'ensemble':[str(i).zfill(3) for i in np.arange(1,11,1)]})
+    elif scenario != 'PIcntl' and ensemble != 'all':
+        ds = xr.open_mfdataset(path_list[0],preprocess=pp,parallel=parallel,chunks=chunks,concat_dim='time',combine='nested',
+                                   coords='minimal',compat='override',data_vars='minimal').expand_dims(dim={'ensemble':[str(ensemble).zfill(3)]})
+    elif scenario == 'PIcntl':
+        ds = xr.open_mfdataset(path_list[0],preprocess=pp,parallel=parallel,chunks=chunks,concat_dim='time',combine='nested',
                                    coords='minimal',compat='override',data_vars='minimal')
                               
     return ds
