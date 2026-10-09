@@ -39,7 +39,7 @@ Since this is a package to be used on GLADE/Casper/Derecho, it is recommended to
   chunks = {'time':1,'z_t': -1, 'nlat': 100, 'nlon': 100}
   
   ds = mu.get_CESM_variable(resolution, variable, start, end, scenario, ensemble, component, temporal,
-                            drop_cell=True, chunks=chunks, parallel=True, shift_time='auto')
+                            drop_cell=True, chunks=chunks, parallel=False, shift_time='auto')
 ```
 
 ## Contact
@@ -47,6 +47,7 @@ Travis Prochko - trp2@tamu.edu | travpro18@outlook.com \
 Department of Oceanography, Texas A&M University, College Station, TX
 
 ## Acknowledgements
+Questions, comments, criticisms, and/or corrections are welcome. 
 Much inspiration from Stephen Yeager's (https://github.com/sgyeager) scripts and repositories.
 
 
